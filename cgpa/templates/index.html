@@ -1,0 +1,313 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Semester CGPA Predictor</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            padding: 30px 15px;
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #101827, #243b65);
+            color: white;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 650px;
+            margin: auto;
+            padding: 28px;
+            background: #1e293b;
+            border-radius: 18px;
+            box-shadow: 0 10px 35px #0005;
+        }
+
+        h1 {
+            text-align: center;
+            color: #67e8f9;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #cbd5e1;
+            margin-bottom: 25px;
+        }
+
+        .semester {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin: 12px 0;
+        }
+
+        .semester label {
+            flex: 1;
+        }
+
+        input, select {
+            width: 120px;
+            padding: 11px;
+            border: 1px solid #475569;
+            border-radius: 8px;
+            background: #0f172a;
+            color: white;
+            font-size: 16px;
+        }
+
+        .trend {
+            margin-top: 24px;
+        }
+
+        .trend label {
+            display: block;
+            margin-bottom: 10px;
+        }
+
+        .trend select {
+            width: 100%;
+        }
+
+        button {
+            padding: 12px 16px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 15px;
+            font-weight: bold;
+            margin: 8px 5px 0 0;
+        }
+
+        .primary {
+            background: #06b6d4;
+            color: #082f49;
+        }
+
+        .secondary {
+            background: #334155;
+            color: white;
+        }
+
+        .actions {
+            margin-top: 20px;
+        }
+
+        .result {
+            display: none;
+            margin-top: 25px;
+            padding: 20px;
+            border-radius: 12px;
+            background: #0f172a;
+        }
+
+        .result h2 {
+            color: #67e8f9;
+        }
+
+        .number {
+            font-size: 38px;
+            font-weight: bold;
+            color: #4ade80;
+        }
+
+        .error {
+            color: #fca5a5;
+            margin-top: 15px;
+        }
+
+        .note {
+            color: #cbd5e1;
+            font-size: 13px;
+            line-height: 1.5;
+            margin-top: 22px;
+        }
+
+        @media (max-width: 450px) {
+            .container {
+                padding: 18px;
+            }
+
+            .semester {
+                gap: 6px;
+            }
+
+            input {
+                width: 95px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+<div class="container">
+    <h1>CGPA Predictor</h1>
+    <p class="subtitle">Estimate your next semester CGPA</p>
+
+    <div id="semesters"></div>
+
+    <button class="secondary" onclick="addSemester()">
+        + Add Semester
+    </button>
+
+    <div class="trend">
+        <label for="trend">Expected performance trend</label>
+        <select id="trend">
+            <option value="-1">Lower by 1.0 CGPA</option>
+            <option value="-0.5">Lower by 0.5 CGPA</option>
+            <option value="0" selected>Same performance</option>
+            <option value="0.5">Improve by 0.5 CGPA</option>
+            <option value="1">Improve by 1.0 CGPA</option>
+        </select>
+    </div>
+
+    <div class="actions">
+        <button class="primary" onclick="predictCGPA()">
+            Predict CGPA
+        </button>
+        <button class="secondary" onclick="loadExample()">
+            Load Example
+        </button>
+        <button class="secondary" onclick="resetForm()">
+            Reset
+        </button>
+    </div>
+
+    <p id="error" class="error"></p>
+
+    <div id="result" class="result">
+        <h2>Your Prediction</h2>
+        <p>Previous semester average</p>
+        <div id="average" class="number">0.00</div>
+
+        <p>Predicted next semester CGPA</p>
+        <div id="prediction" class="number">0.00</div>
+
+        <p id="message"></p>
+        <p class="note">
+            This is an estimate based on your previous CGPAs and
+            selected trend, not a guaranteed academic result.
+        </p>
+    </div>
+</div>
+
+<script>
+    let semesterCount = 0;
+
+    function addSemester(value = "") {
+        semesterCount++;
+
+        const div = document.createElement("div");
+        div.className = "semester";
+
+        const label = document.createElement("label");
+        label.textContent = "Semester " + semesterCount;
+
+        const input = document.createElement("input");
+        input.type = "number";
+        input.min = "0";
+        input.max = "10";
+        input.step = "0.01";
+        input.placeholder = "0–10";
+        input.value = value;
+        input.className = "cgpa";
+        input.setAttribute(
+            "aria-label",
+            "Semester " + semesterCount + " CGPA"
+        );
+
+        div.appendChild(label);
+        div.appendChild(input);
+
+        document.getElementById("semesters").appendChild(div);
+    }
+
+    async function predictCGPA() {
+        const inputs = [...document.querySelectorAll(".cgpa")];
+        const error = document.getElementById("error");
+        const result = document.getElementById("result");
+
+        error.textContent = "";
+        result.style.display = "none";
+
+        const values = inputs.map(input => input.value.trim());
+
+        if (values.length === 0 || values.some(v => v === "")) {
+            error.textContent = "Enter a CGPA for every semester.";
+            return;
+        }
+
+        const cgpas = values.map(Number);
+
+        if (cgpas.some(v => !Number.isFinite(v) || v < 0 || v > 10)) {
+            error.textContent = "Each CGPA must be between 0 and 10.";
+            return;
+        }
+
+        try {
+            const response = await fetch("/predict", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    cgpas: cgpas,
+                    trend: Number(document.getElementById("trend").value)
+                })
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.error || "Prediction failed.");
+            }
+
+            document.getElementById("average").textContent =
+                data.average.toFixed(2);
+
+            document.getElementById("prediction").textContent =
+                data.predicted_cgpa.toFixed(2);
+
+            document.getElementById("message").textContent =
+                data.message;
+
+            result.style.display = "block";
+
+        } catch (err) {
+            error.textContent =
+                "Could not connect to the backend. Start the Flask server and try again.";
+            console.error(err);
+        }
+    }
+
+    function loadExample() {
+        document.getElementById("semesters").innerHTML = "";
+        semesterCount = 0;
+
+        [7.2, 7.6, 8.0, 8.2].forEach(value => addSemester(value));
+
+        document.getElementById("trend").value = "0.5";
+        document.getElementById("error").textContent = "";
+        document.getElementById("result").style.display = "none";
+    }
+
+    function resetForm() {
+        document.getElementById("semesters").innerHTML = "";
+        semesterCount = 0;
+        addSemester();
+        addSemester();
+
+        document.getElementById("trend").value = "0";
+        document.getElementById("error").textContent = "";
+        document.getElementById("result").style.display = "none";
+    }
+
+    resetForm();
+</script>
+</body>
+</html>
